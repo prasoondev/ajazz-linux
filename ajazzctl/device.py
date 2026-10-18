@@ -194,6 +194,29 @@ class HidrawTransport(Transport):
             pass
 
 
+class SimulatedTransport(Transport):
+    """In-memory keyboard for UI development (AJAZZCTL_FAKE=1). Never touches hardware."""
+
+    def __init__(self):
+        self.pending: list[bytes] = []
+        self.sent = 0
+
+    def write(self, packet: bytes) -> None:
+        self.sent += 1
+        if packet[4] == P.CMD_STATUS:
+            self.pending.append(P.build(P.CMD_STATUS, (87, 2)))
+
+    def read(self, timeout: float) -> bytes | None:
+        return self.pending.pop(0) if self.pending else None
+
+
+def simulated_node() -> HidrawNode:
+    return HidrawNode(name="sim", devnode="(simulated)", bus=3, vid=VENDOR_ID, pid=0x8FFF,
+                      hid_name="Simulated AK820", uniq="", interface=0,
+                      usage_page=CONFIG_USAGE_PAGE, usage=CONFIG_USAGE,
+                      report_descriptor=b"", sys_path="/nonexistent/a/b/c/d")
+
+
 class Keyboard:
     """High-level operations. Timing mirrors the vendor application."""
 
@@ -211,6 +234,8 @@ class Keyboard:
 
     @classmethod
     def open(cls, devnode: str | None = None, log=None) -> "Keyboard":
+        if os.environ.get("AJAZZCTL_FAKE"):
+            return cls(SimulatedTransport(), simulated_node(), log)
         boards = find_keyboards()
         if devnode:
             boards = [b for b in boards if b.devnode == devnode]

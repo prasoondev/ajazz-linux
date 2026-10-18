@@ -1,3 +1,4 @@
+import unittest.mock
 import os
 import tempfile
 import unittest
@@ -188,3 +189,20 @@ class DiscoveryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PreviewTests(unittest.TestCase):
+    def test_every_effect_renders_all_keys(self):
+        from ajazzctl import preview
+        for e in P.EFFECTS:
+            if e.mode == P.MODE_CUSTOM:
+                continue
+            for t in (0.0, 0.37, 2.5):
+                f = preview.frame(P.LightSettings(mode=e.mode, color=3), t)
+                self.assertEqual(len(f), 82, e.key)
+                self.assertTrue(all(0 <= c <= 255 for rgb in f.values() for c in rgb), e.key)
+
+    def test_simulated_device(self):
+        with unittest.mock.patch.dict(os.environ, {"AJAZZCTL_FAKE": "1"}):
+            kb = D.Keyboard.open()
+            self.assertEqual(kb.status().battery, 87)

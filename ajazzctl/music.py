@@ -112,6 +112,24 @@ class Analyzer:
         return self.levels
 
 
+class DemoAnalyzer:
+    """Fake, music-like levels for on-screen previews when nothing is running."""
+
+    def __init__(self):
+        self.levels = [0.0] * BANDS
+        self.energy = self.bass = 0.0
+        self.sensitivity = 1.0
+
+    def update(self, t: float):
+        beat = max(0.0, math.sin(t * 2 * math.pi * 2.0)) ** 6
+        self.levels = [max(0.0, min(1.0, 0.25 + 0.55 * beat * (1 - i / BANDS) +
+                                     0.3 * math.sin(t * (1.3 + i * 0.37) + i) ** 2 * (0.4 + i / BANDS)))
+                       for i in range(BANDS)]
+        self.bass = max(self.levels[:3])
+        self.energy = sum(self.levels) / BANDS
+        return self.levels
+
+
 def _hsv(h, s, v):
     r, g, b = colorsys.hsv_to_rgb(h % 1.0, s, max(0.0, min(1.0, v)))
     return int(r * 255), int(g * 255), int(b * 255)
@@ -180,6 +198,7 @@ class Visualizer:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self.analyzer: Analyzer | None = None
+        self.last_frame: dict[int, tuple[int, int, int]] = {}
 
     def start(self):
         try:
@@ -205,7 +224,8 @@ class Visualizer:
             while not self._stop.is_set():
                 pcm = self.audio.read_latest(FFT_SIZE * 2)
                 self.analyzer.update(pcm)
-                self.kb.send_live_frame(self.renderer.frame(self.analyzer))
+                self.last_frame = self.renderer.frame(self.analyzer)
+                self.kb.send_live_frame(self.last_frame)
                 nxt += period
                 delay = nxt - time.monotonic()
                 if delay > 0:

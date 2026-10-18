@@ -22,4 +22,7 @@ ajazzctl = "ajazzctl.cli:main"
 ajazzctl-gui = "ajazzctl.gui:main"
 
 [tool.setuptools]
-packages = ["ajazzctl"]
+packages = ["ajazzctl", "ajazzctl.gui"]
+
+[tool.setuptools.package-data]
+ajazzctl = ["data/*.svg"]

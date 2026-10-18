@@ -31,5 +31,6 @@ package() {
   python -m installer --destdir="$pkgdir" "$srcdir"/dist/*.whl
   install -Dm644 "$_srcdir/udev/70-ajazz-ak820.rules" "$pkgdir/usr/lib/udev/rules.d/70-ajazz-ak820.rules"
   install -Dm644 "$_srcdir/packaging/io.github.ajazzctl.desktop" "$pkgdir/usr/share/applications/io.github.ajazzctl.desktop"
+  install -Dm644 "$_srcdir/ajazzctl/data/io.github.ajazzctl.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/io.github.ajazzctl.svg"
   install -Dm644 "$_srcdir/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

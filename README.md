@@ -80,15 +80,41 @@ keyboard is used if present, otherwise the receiver.
 
 ## GUI
 
-`ajazzctl-gui` (or "AJAZZ Keyboard" in the app menu) has four tabs:
+`ajazzctl-gui` (or **AJAZZ Keyboard** in the app menu) is a GTK4 / libadwaita app:
 
-* **Lighting**: effect, brightness, speed, direction and colour. Changes
+* **Lighting**: a gallery of all 16 effects with animated previews, a live preview of
+  the whole board, and controls for brightness, speed, direction and colour. Changes
   apply immediately.
-* **Per-key**: paint keys on a drawing of the board (left click/drag to
-  paint, right click to turn a key off), then *Apply to keyboard*.
-* **Music**: audio-reactive lighting while the window is open.
-* **Settings**: sleep time, response time, Fn switch, plus device and battery
-  status (polled every 5 s). It reconnects automatically after a replug.
+* **Per-key RGB**: paint keys on a drawing of the board with paint, erase and
+  eyedropper tools, a palette plus recent colours, presets (rainbow, gradient,
+  gaming) and undo/redo. *Live preview on keyboard* mirrors your edits on the
+  real keyboard as you paint; *Save to Keyboard* stores them.
+* **Music Sync**: audio-reactive lighting (spectrum, pulse, wave) with an
+  on-screen mirror of the keyboard and a level meter.
+* **Key Remap**: click a key, then pick a target in a searchable popover. Base
+  and Fn layers are supported. (experimental)
+* **Settings**: sleep and response time, device info, theme (System / Light /
+  Dark), launch at login, keep running in the tray, and start music sync on login.
+
+**Tray**: closing the window keeps the app running in the system tray, where
+music sync keeps going. Left-click the tray icon to show or hide the window;
+right-click for *Open*, *Music sync* and *Quit*. The tray uses
+StatusNotifierItem, which works natively on KDE Plasma and on GNOME with the
+AppIndicator extension. Without a tray host, closing the window quits the app.
+
+**Autostart**: *Settings → Launch at login* writes
+`~/.config/autostart/io.github.ajazzctl.desktop`, which starts the app hidden in
+the tray (`ajazzctl-gui --hidden`).
+
+When run from a source checkout, the app installs a per-user launcher and icon
+(`~/.local/share/applications`, `~/.local/share/icons`). Wayland compositors need
+these to show the right taskbar icon.
+
+Keyboard shortcuts: `Ctrl+1`…`Ctrl+5` switch pages, `Ctrl+Z` / `Ctrl+Shift+Z`
+undo and redo in the per-key painter, `Ctrl+Q` quits.
+
+**Development**: `AJAZZCTL_FAKE=1` runs the CLI and GUI against a simulated
+keyboard, so no hardware is touched.
 
 ## Not implemented, and why
 
@@ -117,7 +143,9 @@ ajazzctl/layout.py     82-key layout: HID codes, LED indices, geometry
 ajazzctl/music.py      audio capture, FFT, frame renderers
 ajazzctl/state.py      ~/.config/ajazzctl/state.json
 ajazzctl/cli.py        `ajazzctl`
-ajazzctl/gui.py        `ajazzctl-gui` (GTK4 + libadwaita)
+ajazzctl/preview.py    on-screen effect previews
+ajazzctl/desktop.py    launcher entry, icon, autostart
+ajazzctl/gui/          `ajazzctl-gui` (GTK4 + libadwaita): window, keyboard widget, tray, worker
 docs/PROTOCOL.md       protocol specification with evidence
 docs/REPORT.md         reverse-engineering report, inventory, test results
 udev/                  access rule
