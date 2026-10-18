@@ -52,11 +52,8 @@ class DeviceWorker:
 
 def restore_lighting(kb: Keyboard) -> None:
     """Re-send the last stored lighting (used after a live stream ends)."""
-    s = state.light_settings()
-    if s.mode == P.MODE_CUSTOM:
-        kb.set_custom_colors(state.custom_colors(), brightness=s.brightness)
-    else:
-        kb.set_lighting(s)
+    from ..lights import apply_saved
+    apply_saved(kb)
 
 
 class FrameStreamer:

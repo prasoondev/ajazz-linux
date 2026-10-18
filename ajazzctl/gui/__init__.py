@@ -89,6 +89,8 @@ class App(Adw.Application):
                 APP_ID, "AJAZZ Keyboard", APP_ID, str(DATA), self.toggle_window, [
                     MenuItem("Open AJAZZ Keyboard", self.show_window),
                     MenuItem(separator=True),
+                    MenuItem("Lights", lambda: self.win and self.win.set_lights(state.lights_off()),
+                             toggle=lambda: not state.lights_off()),
                     MenuItem("Music sync", lambda: self.win and self.win.music.toggle(),
                              toggle=lambda: bool(self.win and self.win.live_kind == "music")),
                     MenuItem(separator=True),

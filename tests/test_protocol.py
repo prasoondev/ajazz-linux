@@ -206,3 +206,23 @@ class PreviewTests(unittest.TestCase):
         with unittest.mock.patch.dict(os.environ, {"AJAZZCTL_FAKE": "1"}):
             kb = D.Keyboard.open()
             self.assertEqual(kb.status().battery, 87)
+
+
+class LightsTests(unittest.TestCase):
+    def test_off_on_roundtrip(self):
+        import tempfile
+        from ajazzctl import lights, state
+        with tempfile.TemporaryDirectory() as d, unittest.mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": d}):
+            state.remember_lighting(P.LightSettings(mode=8, color=2, brightness=3))
+            t = FakeTransport()
+            kb = D.Keyboard(t)
+            lights.turn_off(kb)
+            self.assertTrue(state.lights_off())
+            self.assertEqual(t.sent[0][4:6], bytes((0x07, 0x17)))          # custom mode
+            self.assertTrue(all(not any(p[5:]) for p in t.sent[2:]))      # all LEDs black
+            t.sent.clear()
+            lights.turn_on(kb)
+            self.assertFalse(state.lights_off())
+            self.assertEqual(t.sent[0][4:10], bytes((0x07, 7, 2, 3, 0, 2)))  # breathing, blue, b3
+            state.remember_lighting(P.LightSettings())
+            self.assertFalse(state.lights_off())

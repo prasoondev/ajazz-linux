@@ -50,6 +50,17 @@ def light_settings() -> P.LightSettings:
 def remember_lighting(s: P.LightSettings) -> None:
     d = load()
     d["lighting"] = asdict(s)
+    d["lights_off"] = False      # applying any lighting turns the lights back on
+    save(d)
+
+
+def lights_off() -> bool:
+    return bool(load().get("lights_off", False))
+
+
+def set_lights_off(off: bool) -> None:
+    d = load()
+    d["lights_off"] = off
     save(d)
 
 
@@ -68,6 +79,7 @@ def remember_custom(colors: dict[int, tuple[int, int, int]], brightness: int) ->
     d = load()
     d["custom_colors"] = {str(k): list(v) for k, v in sorted(colors.items())}
     d["lighting"] = asdict(P.LightSettings(mode=P.MODE_CUSTOM, brightness=brightness))
+    d["lights_off"] = False
     save(d)
 
 

@@ -80,6 +80,7 @@ def _describe(s: P.LightSettings) -> dict:
 
 def cmd_light_status(args) -> int:
     d = _describe(state.light_settings())
+    d["lights"] = "off" if state.lights_off() else "on"
     d["source"] = "last settings sent by ajazzctl (the keyboard cannot report them)"
     _out(args, d, "\n".join(f"{k:<11} {v}" for k, v in d.items()))
     return 0
@@ -123,6 +124,15 @@ def cmd_light_set(args) -> int:
         kb.set_lighting(s)
     state.remember_lighting(s)
     _out(args, _describe(s), "sent: " + ", ".join(f"{k}={v}" for k, v in _describe(s).items()))
+    return 0
+
+
+def cmd_light_power(args) -> int:
+    from . import lights
+    with _open(args) as kb:
+        on = args.power == "on" or (args.power == "toggle" and state.lights_off())
+        (lights.turn_on if on else lights.turn_off)(kb)
+    _out(args, {"lights": "on" if on else "off"}, f"lights {'on' if on else 'off'}")
     return 0
 
 
@@ -327,6 +337,10 @@ def build_parser() -> argparse.ArgumentParser:
         q.set_defaults(fn=cmd_light_set, **{k: None for k in
                                              ("effect", "brightness", "speed", "direction", "color")
                                              if k != kw})
+    for name, hlp in (("off", "turn all LEDs off (remembers your settings)"),
+                      ("on", "turn lighting back on with your previous settings"),
+                      ("toggle", "toggle lights on/off")):
+        lp.add_parser(name, help=hlp).set_defaults(fn=cmd_light_power, power=name)
     cp = lp.add_parser("custom", help="per-key colours (custom mode)")
     cp.add_argument("--all", metavar="RRGGBB", help="set every key to one colour")
     cp.add_argument("--key", "-k", action="append", metavar="KEY=RRGGBB")

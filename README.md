@@ -15,6 +15,7 @@ ajazzctl only talks to the separate vendor configuration interface.
 | Battery and charge state | `info` | ✓ | verified (wired + 2.4 GHz) |
 | 16 lighting effects | `lighting set/effect` | ✓ | verified |
 | Brightness, speed, direction, 8 colours | `lighting …` | ✓ | verified |
+| Lights off / on (settings kept) | `lighting off/on/toggle` | ✓ switch, power button, tray | verified |
 | Per-key RGB (custom mode, stored on the keyboard) | `lighting custom` | ✓ painter | verified |
 | Music sync (spectrum / pulse / wave) | `music` | ✓ | verified |
 | Key remap (single key → key) | `keymap set/reset` | — | **experimental**, hardware test pending |
@@ -65,6 +66,7 @@ ajazzctl lighting effects               # effects and the options each supports
 ajazzctl lighting set -e breathing -c cyan -b 4 -s 2
 ajazzctl lighting effect galloping
 ajazzctl lighting brightness 3
+ajazzctl lighting off                    # all LEDs off; `on` restores your previous lighting
 ajazzctl lighting custom --all 101010 -k esc=ff0000 -k w=00ff00 -k a=00ff00 -k s=00ff00 -k d=00ff00
 ajazzctl keys                           # key names for `custom` and `keymap`
 ajazzctl music --style spectrum         # Ctrl-C restores the previous lighting

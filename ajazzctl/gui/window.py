@@ -65,8 +65,17 @@ class LightingPage:
         self._apply_id = 0
 
         self.view = KeyboardView()
-        self.view.set_animator(lambda t: preview.frame(self.settings, t, state.custom_colors()))
+        self.view.set_animator(lambda t: {} if state.lights_off()
+                               else preview.frame(self.settings, t, state.custom_colors()))
         card = _board_card(self.view, "Preview, approximately what the keyboard shows")
+
+        power = Adw.PreferencesGroup()
+        self.power_row = Adw.SwitchRow(title="Keyboard lighting",
+                                       subtitle="Turn all LEDs off; your settings are kept",
+                                       active=not state.lights_off())
+        self.power_row.add_prefix(Gtk.Image(icon_name="system-shutdown-symbolic"))
+        self.power_row.connect("notify::active", lambda r, _: win.set_lights(r.get_active()))
+        power.add(self.power_row)
 
         # effect gallery
         self.flow = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.SINGLE, homogeneous=True,
@@ -133,7 +142,7 @@ class LightingPage:
         note.add_css_class("dim-label")
         note.add_css_class("caption")
 
-        self.widget, _ = _page_scroller(card, _section_title("Effects"), self.flow, opts, note)
+        self.widget, _ = _page_scroller(power, card, _section_title("Effects"), self.flow, opts, note)
         self._sync_sensitivity()
         GLib.timeout_add(70, self._animate_thumbs)
         self._suspend = False
@@ -190,10 +199,12 @@ class LightingPage:
         if s.mode == P.MODE_CUSTOM:
             colors = state.custom_colors()
             self.win.worker.submit(lambda kb: kb.set_custom_colors(colors, s.brightness),
-                                   done=lambda _: state.remember_custom(colors, s.brightness))
+                                   done=lambda _: (state.remember_custom(colors, s.brightness),
+                                                   self.win.sync_lights_ui()))
         else:
             self.win.worker.submit(lambda kb: kb.set_lighting(s),
-                                   done=lambda _: state.remember_lighting(s))
+                                   done=lambda _: (state.remember_lighting(s),
+                                                   self.win.sync_lights_ui()))
         return GLib.SOURCE_REMOVE
 
     def refresh_from_state(self):
@@ -447,6 +458,7 @@ class PerKeyPage:
         def done(_):
             state.remember_custom(colors, b)
             self.win.lighting.refresh_from_state()
+            self.win.sync_lights_ui()
             self.win.toast("Per-key colours saved to the keyboard")
         self.win.worker.submit(lambda kb: kb.set_custom_colors(colors, brightness=b), done=done)
 
@@ -1000,7 +1012,7 @@ class MainWindow(Adw.ApplicationWindow):
         card.add_css_class("device-card")
         top = Gtk.Box(spacing=10)
         icon = Gtk.Image(icon_name="io.github.ajazzctl", pixel_size=40)
-        names = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER)
+        names = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER, hexpand=True)
         t = Gtk.Label(label="AK820 Max Plus", xalign=0)
         t.add_css_class("title")
         conn = Gtk.Box(spacing=6)
@@ -1015,6 +1027,13 @@ class MainWindow(Adw.ApplicationWindow):
         names.append(conn)
         top.append(icon)
         top.append(names)
+        self.power_btn = Gtk.ToggleButton(icon_name="system-shutdown-symbolic", valign=Gtk.Align.CENTER,
+                                          tooltip_text="Keyboard lighting on/off",
+                                          active=not state.lights_off())
+        self.power_btn.add_css_class("circular")
+        self.power_btn.add_css_class("power-button")
+        self.power_btn.connect("toggled", lambda b: self.set_lights(b.get_active()))
+        top.append(self.power_btn)
         card.append(top)
         bat = Gtk.Box(spacing=8)
         self.batt_bar = Gtk.LevelBar(min_value=0, max_value=100, hexpand=True,
@@ -1053,6 +1072,29 @@ class MainWindow(Adw.ApplicationWindow):
                     lambda *a, fn=fn: (fn() if self.stack.get_visible_child_name() == "perkey"
                                        else None) or True)))
         self.add_controller(ctl)
+
+    # -- lights on/off ----------------------------------------------------------
+    def set_lights(self, on: bool):
+        if getattr(self, "_syncing", False) or on == (not state.lights_off()):
+            return
+        from .. import lights
+        self.stop_live(restore=False)
+        self.worker.submit(lights.turn_on if on else lights.turn_off,
+                           done=lambda _: (self.sync_lights_ui(),
+                                           self.toast("Lights on" if on else "Lights off")))
+        # if the device is unreachable, snap the switches back
+        GLib.timeout_add(1500, lambda: (self.sync_lights_ui(), False)[-1])
+
+    def sync_lights_ui(self):
+        on = not state.lights_off()
+        self._syncing = True
+        try:
+            self.lighting.power_row.set_active(on)
+            self.power_btn.set_active(on)
+        finally:
+            self._syncing = False
+        if self.on_live_changed:       # refresh tray menu checkmarks
+            self.on_live_changed()
 
     # -- live streams ------------------------------------------------------------
     def set_live(self, kind, obj, on_stop=None):

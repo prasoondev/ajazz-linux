@@ -32,6 +32,7 @@ flowboxchild:selected .effect-card { background: alpha(var(--accent-bg-color), .
 .hero-button image { -gtk-icon-size: 36px; }
 .hero-title { font-size: 1.4em; font-weight: 800; }
 
+.power-button:checked { background: var(--accent-bg-color); color: var(--accent-fg-color); }
 .toolbar-card { padding: 10px 12px; border-radius: 14px; }
 .value-label { font-feature-settings: "tnum"; min-width: 2.2em; }
 .experimental { font-size: .75em; font-weight: 700; padding: 2px 8px; border-radius: 99px;
