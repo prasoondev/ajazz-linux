@@ -109,6 +109,17 @@ def t_fnswitch(r: Recorder):
                            "in a text field or desktop — do they act as F-keys or media/system keys?")
 
 
+def t_keymap(r: Recorder):
+    print("\n[keymap] remaps PgDn -> 'a' on the base layer, then restores it."
+          "\n  Have a text editor or terminal focused for typing.")
+    pgdn = layout.KEYS_BY_NAME["pgdn"].code
+    r.kb.set_key(P.LAYER_BASE, pgdn, P.HID_NAMES["a"])
+    r.ask("keymap", "PgDn remapped to 'a'. Press PgDn a few times: what does it type? "
+                    "(also check other keys still work)")
+    r.kb.set_key(P.LAYER_BASE, pgdn, 0)
+    r.ask("keymap", "PgDn restored to default. Does PgDn act as Page Down again?")
+
+
 def t_status(r: Recorder):
     st = r.kb.status()
     print(f"\n[status] battery={st.battery} state={st.power_state} ({st.power_state_name})")
@@ -118,7 +129,7 @@ def t_status(r: Recorder):
 
 TESTS = {"status": t_status, "brightness": t_brightness, "color": t_color, "speed": t_speed,
          "direction": t_direction, "effects": t_effects, "custom": t_custom,
-         "fn-switch": t_fnswitch}
+         "fn-switch": t_fnswitch, "keymap": t_keymap}
 
 
 def main():

@@ -230,6 +230,44 @@ def fn_switch_packet(enabled: bool) -> bytes:
     return build(CMD_FN_SWITCH, (1 if enabled else 0,))
 
 
+LAYER_BASE = 0
+LAYER_FN = 1
+
+
+def key_assign_packet(layer: int, source: int, target: int) -> bytes:
+    """Remap physical key `source` (HID usage) on `layer` to HID usage `target`.
+
+    target 0 restores the key's default function. Only single, unmodified keys
+    are stored in firmware; the vendor app emulates modifier combos in software.
+    """
+    if layer not in (LAYER_BASE, LAYER_FN):
+        raise ValueError("layer must be 0 (base) or 1 (Fn)")
+    for name, v in (("source", source), ("target", target)):
+        if not 0 <= v <= 0xFF:
+            raise ValueError(f"{name} key code out of range: {v}")
+    if source == 0:
+        raise ValueError("source key code must be non-zero")
+    return build(CMD_KEY_ASSIGN, (layer + 1, source, target))
+
+
+# HID keyboard usage names accepted as remap targets
+HID_NAMES: dict[str, int] = {
+    **{chr(ord("a") + i): 0x04 + i for i in range(26)},
+    **{str(i): 0x1D + i for i in range(1, 10)}, "0": 0x27,
+    "enter": 0x28, "esc": 0x29, "backspace": 0x2A, "tab": 0x2B, "space": 0x2C,
+    "minus": 0x2D, "equal": 0x2E, "lbracket": 0x2F, "rbracket": 0x30, "backslash": 0x31,
+    "semicolon": 0x33, "quote": 0x34, "grave": 0x35, "comma": 0x36, "period": 0x37,
+    "slash": 0x38, "capslock": 0x39,
+    **{f"f{i}": 0x39 + i for i in range(1, 13)},
+    "printscreen": 0x46, "scrolllock": 0x47, "pause": 0x48, "insert": 0x49, "home": 0x4A,
+    "pgup": 0x4B, "del": 0x4C, "end": 0x4D, "pgdn": 0x4E, "right": 0x4F, "left": 0x50,
+    "down": 0x51, "up": 0x52, "numlock": 0x53, "menu": 0x65,
+    **{f"f{i}": 0x68 + i - 13 for i in range(13, 25)},
+    "lctrl": 0xE0, "lshift": 0xE1, "lalt": 0xE2, "lwin": 0xE3,
+    "rctrl": 0xE4, "rshift": 0xE5, "ralt": 0xE6, "rwin": 0xE7,
+}
+
+
 def parse_hex_color(text: str) -> tuple[int, int, int]:
     t = text.strip().lstrip("#")
     if len(t) == 3:

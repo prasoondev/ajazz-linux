@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=AJAZZ Keyboard
+GenericName=Keyboard Lighting
+Comment=Configure the AJAZZ AK820 Max Plus (lighting, music sync, key remap)
+Exec=ajazzctl-gui
+Icon=input-keyboard
+Terminal=false
+Categories=Settings;HardwareSettings;
+Keywords=ajazz;ak820;rgb;keyboard;lighting;
+StartupNotify=true

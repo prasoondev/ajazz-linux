@@ -297,6 +297,10 @@ class Keyboard:
             for pkt in pkts:
                 self.t.write(pkt)
 
+    def set_key(self, layer: int, source: int, target: int) -> None:
+        self.send(P.key_assign_packet(layer, source, target))
+        time.sleep(0.2)  # vendor app: Sleep(200) after each key write
+
     def set_sleep_time(self, index: int) -> None:
         self.send(P.sleep_time_packet(index))
 

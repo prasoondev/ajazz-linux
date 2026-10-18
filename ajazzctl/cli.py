@@ -239,6 +239,54 @@ def cmd_music(args) -> int:
     return 0
 
 
+def _target(name: str) -> int:
+    n = name.lower()
+    if n in P.HID_NAMES:
+        return P.HID_NAMES[n]
+    if n.startswith("0x"):
+        try:
+            return int(n, 16)
+        except ValueError:
+            pass
+    raise SystemExit(f"unknown target key {name!r}; see `ajazzctl keymap targets`")
+
+
+def cmd_keymap_set(args) -> int:
+    src = _key(args.key)
+    if src.code == 0xAF:
+        raise SystemExit("the Fn key cannot be remapped")
+    layer = P.LAYER_FN if args.fn_layer else P.LAYER_BASE
+    tgt = 0 if args.reset else _target(args.target)
+    with _open(args) as kb:
+        kb.set_key(layer, src.code, tgt)
+    d = state.load()
+    km = d.setdefault("keymap", {})
+    slot = f"{layer}:{layout.key_name(src.code)}"
+    if tgt:
+        km[slot] = tgt
+    else:
+        km.pop(slot, None)
+    state.save(d)
+    what = "default" if not tgt else f"0x{tgt:02x}"
+    _out(args, {"layer": layer, "key": args.key, "target": tgt},
+         f"sent: {'Fn+' if layer else ''}{args.key} -> {what}  (experimental)")
+    return 0
+
+
+def cmd_keymap_list(args) -> int:
+    km = state.load().get("keymap", {})
+    names = {v: k for k, v in P.HID_NAMES.items()}
+    lines = [f"{'Fn+' if s.startswith('1:') else ''}{s[2:]:<10} -> {names.get(v, hex(v))}"
+             for s, v in sorted(km.items())] or ["no remaps sent from this computer"]
+    _out(args, km, "\n".join(lines))
+    return 0
+
+
+def cmd_keymap_targets(args) -> int:
+    _out(args, P.HID_NAMES, " ".join(sorted(P.HID_NAMES, key=lambda k: P.HID_NAMES[k])))
+    return 0
+
+
 def cmd_unsupported(args) -> int:
     print(f"`{args.feature}` is not implemented yet: the packet format was located in the vendor "
           "software but has not been verified on hardware. See docs/PROTOCOL.md.", file=sys.stderr)
@@ -307,7 +355,21 @@ def build_parser() -> argparse.ArgumentParser:
                     help="PulseAudio/PipeWire source (default: monitor of default output)")
     mp.set_defaults(fn=cmd_music)
 
-    for feat in ("keymap", "macro"):
+    kp = sub.add_parser("keymap", help="remap keys (experimental)").add_subparsers(
+        dest="kcmd", required=True)
+    q = kp.add_parser("set", help="remap KEY to TARGET (single key, stored on the keyboard)")
+    q.add_argument("key", help="physical key name, see `ajazzctl keys`")
+    q.add_argument("target", help="target key name, see `ajazzctl keymap targets`")
+    q.add_argument("--fn-layer", action="store_true", help="remap Fn+KEY instead of KEY")
+    q.set_defaults(fn=cmd_keymap_set, reset=False)
+    q = kp.add_parser("reset", help="restore KEY's default function")
+    q.add_argument("key")
+    q.add_argument("--fn-layer", action="store_true")
+    q.set_defaults(fn=cmd_keymap_set, reset=True, target=None)
+    kp.add_parser("list", help="remaps sent from this computer").set_defaults(fn=cmd_keymap_list)
+    kp.add_parser("targets", help="list target key names").set_defaults(fn=cmd_keymap_targets)
+
+    for feat in ("macro",):
         sub.add_parser(feat, help="(not yet supported)").set_defaults(fn=cmd_unsupported, feature=feat)
     return p
 

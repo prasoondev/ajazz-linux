@@ -1,0 +1,35 @@
+# Maintainer: prasoon <prasoon5050@outlook.com>
+pkgname=ajazzctl
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Unofficial Linux configuration tool (CLI + GTK GUI) for the AJAZZ AK820 Max Plus keyboard"
+arch=('any')
+license=('MIT')
+depends=('python')
+optdepends=('python-gobject: GUI'
+            'gtk4: GUI'
+            'libadwaita: GUI'
+            'python-numpy: music sync'
+            'libpulse: music sync audio capture (parec)')
+makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
+source=()
+sha256sums=()
+
+_srcdir="${startdir}/.."
+
+build() {
+  cd "$_srcdir"
+  python -m build --wheel --no-isolation --outdir "$srcdir/dist"
+}
+
+check() {
+  cd "$_srcdir"
+  python -m unittest discover -s tests -t .
+}
+
+package() {
+  python -m installer --destdir="$pkgdir" "$srcdir"/dist/*.whl
+  install -Dm644 "$_srcdir/udev/70-ajazz-ak820.rules" "$pkgdir/usr/lib/udev/rules.d/70-ajazz-ak820.rules"
+  install -Dm644 "$_srcdir/packaging/io.github.ajazzctl.desktop" "$pkgdir/usr/share/applications/io.github.ajazzctl.desktop"
+  install -Dm644 "$_srcdir/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

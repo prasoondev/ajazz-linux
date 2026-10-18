@@ -65,6 +65,15 @@ class BuildTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             P.response_time_packet(3)
 
+    def test_key_assign(self):
+        self.assertEqual(P.key_assign_packet(0, 0x39, 0x29)[4:8], bytes((0x04, 1, 0x39, 0x29)))
+        self.assertEqual(P.key_assign_packet(1, 0x3A, 0)[4:8], bytes((0x04, 2, 0x3A, 0)))
+        for bad in ((2, 4, 4), (0, 0, 4), (0, 4, 256)):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                P.key_assign_packet(*bad)
+        self.assertEqual(P.HID_NAMES["f13"], 0x68)
+        self.assertEqual(P.HID_NAMES["0"], 0x27)
+
     def test_rgb_chunks(self):
         chunks = P.rgb_chunks({0: (1, 2, 3), 18: (4, 5, 6), 107: (7, 8, 9)}, P.CUSTOM_CHUNK_BASE)
         self.assertEqual(len(chunks), 6)
