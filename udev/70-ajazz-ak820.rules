@@ -1,0 +1,7 @@
+# AJAZZ AK820 Max Plus — grant the logged-in user access to the vendor
+# configuration interface ONLY (USB interface 0, HID usage page 0xFF02).
+# Keyboard input interfaces (1 and 2/3) are deliberately NOT exposed, so
+# unprivileged programs cannot read keystrokes through hidraw.
+#   1a2c:a036  keyboard, wired USB
+#   1a2c:8fff  2.4 GHz receiver
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1a2c", ATTRS{idProduct}=="a036|8fff", DEVPATH=="*:1.0/*", TAG+="uaccess"
