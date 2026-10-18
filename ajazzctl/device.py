@@ -5,6 +5,7 @@ import errno
 import os
 import re
 import select
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -205,6 +206,8 @@ class Keyboard:
         self.t = transport
         self.node = node
         self.log = log or (lambda msg: None)
+        # serialises access when the GUI worker and the music thread share a device
+        self.lock = threading.RLock()
 
     @classmethod
     def open(cls, devnode: str | None = None, log=None) -> "Keyboard":
@@ -231,9 +234,14 @@ class Keyboard:
     # -- low level ------------------------------------------------------------
     def send(self, packet: bytes) -> None:
         self.log(f">> {packet[:16].hex(' ')}{' …' if any(packet[16:]) else ''}")
-        self.t.write(packet)
+        with self.lock:
+            self.t.write(packet)
 
     def transact(self, packet: bytes, expect_cmd: int | None = None) -> bytes:
+        with self.lock:
+            return self._transact(packet, expect_cmd)
+
+    def _transact(self, packet: bytes, expect_cmd: int | None) -> bytes:
         stale = self.t.drain()
         for s in stale:
             self.log(f"<< (stale) {s[:16].hex(' ')}")
@@ -261,15 +269,33 @@ class Keyboard:
 
     def set_custom_colors(self, leds, brightness: int = 5) -> None:
         """Switch to custom mode and store per-key colours on the keyboard."""
-        self.set_lighting(P.LightSettings(mode=P.MODE_CUSTOM, brightness=brightness))
-        self.send(P.build(P.CMD_CUSTOM_PREPARE))
-        time.sleep(self.INTER_PACKET)
-        self._stream(leds, P.CUSTOM_CHUNK_BASE)
+        with self.lock:
+            self.set_lighting(P.LightSettings(mode=P.MODE_CUSTOM, brightness=brightness))
+            self.send(P.build(P.CMD_CUSTOM_PREPARE))
+            time.sleep(self.INTER_PACKET)
+            for pkt in P.rgb_chunks(leds, P.CUSTOM_CHUNK_BASE):
+                self.send(pkt)
+                time.sleep(0.003)  # vendor app: Sleep(3) between chunks
 
-    def _stream(self, leds, base: int) -> None:
-        for pkt in P.rgb_chunks(leds, base):
-            self.send(pkt)
-            time.sleep(0.003)  # vendor app: Sleep(3) between chunks
+    def enter_live_mode(self, mode: int = 22) -> None:
+        """Select a host-driven mode (22 music / 23 screen) and open the frame stream.
+
+        Live frames are not stored; when they stop the keyboard reverts to its
+        stored effect by itself (verified on hardware).
+        """
+        if mode not in (22, 23):
+            raise ValueError("live mode must be 22 (music) or 23 (screen)")
+        with self.lock:
+            self.send(P.build(P.CMD_SET_LIGHT, (mode - 1, 4, 2, 0, 7)))
+            time.sleep(self.INTER_PACKET)
+            self.send(P.build(P.CMD_STREAM_BEGIN))  # vendor waits for a reply; none arrives
+            time.sleep(0.05)
+
+    def send_live_frame(self, leds) -> None:
+        pkts = P.rgb_chunks(leds, P.LIVE_CHUNK_BASE)
+        with self.lock:
+            for pkt in pkts:
+                self.t.write(pkt)
 
     def set_sleep_time(self, index: int) -> None:
         self.send(P.sleep_time_packet(index))

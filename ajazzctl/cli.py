@@ -199,6 +199,46 @@ def cmd_fn_switch(args) -> int:
     return 0
 
 
+def cmd_music(args) -> int:
+    import signal
+    import threading
+    from . import music
+    color = None
+    if args.color and args.color != "rainbow":
+        try:
+            color = P.parse_hex_color(args.color)
+        except ValueError as e:
+            raise SystemExit(str(e))
+    previous = state.light_settings()
+    done = threading.Event()
+    errors = []
+
+    def on_error(e):
+        errors.append(e)
+        done.set()
+    with _open(args) as kb:
+        vis = music.Visualizer(kb, style=args.style, color=color, fps=args.fps,
+                               sensitivity=args.sensitivity, source=args.source, on_error=on_error)
+        try:
+            vis.start()
+        except music.AudioError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 1
+        signal.signal(signal.SIGTERM, lambda *a: done.set())
+        print(f"music sync running ({args.style}); Ctrl-C to stop", file=sys.stderr)
+        try:
+            while not done.wait(0.5):
+                pass
+        except KeyboardInterrupt:
+            pass
+        vis.stop(restore=previous, custom=state.custom_colors())
+    if errors:
+        print(f"error: {errors[0]}", file=sys.stderr)
+        return 1
+    print("stopped; previous lighting restored", file=sys.stderr)
+    return 0
+
+
 def cmd_unsupported(args) -> int:
     print(f"`{args.feature}` is not implemented yet: the packet format was located in the vendor "
           "software but has not been verified on hardware. See docs/PROTOCOL.md.", file=sys.stderr)
@@ -257,6 +297,15 @@ def build_parser() -> argparse.ArgumentParser:
     q = st.add_parser("fn-switch", help="swap F-row default between F-keys and media")
     q.add_argument("value", choices=("on", "off"))
     q.set_defaults(fn=cmd_fn_switch)
+
+    mp = sub.add_parser("music", help="audio-reactive lighting (runs until Ctrl-C)")
+    mp.add_argument("--style", choices=("spectrum", "pulse", "wave"), default="spectrum")
+    mp.add_argument("--color", default="rainbow", help="'rainbow' or RRGGBB")
+    mp.add_argument("--fps", type=int, default=30, choices=range(5, 61), metavar="5..60")
+    mp.add_argument("--sensitivity", type=float, default=1.0, help="0.5 (calm) .. 2.0 (jumpy)")
+    mp.add_argument("--source", default="@DEFAULT_MONITOR@",
+                    help="PulseAudio/PipeWire source (default: monitor of default output)")
+    mp.set_defaults(fn=cmd_music)
 
     for feat in ("keymap", "macro"):
         sub.add_parser(feat, help="(not yet supported)").set_defaults(fn=cmd_unsupported, feature=feat)

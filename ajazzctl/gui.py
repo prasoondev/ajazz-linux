@@ -168,6 +168,8 @@ class MainWindow(Adw.ApplicationWindow):
         self._apply_source = 0
         self.settings = state.light_settings()
         self.connected_node = None
+        self.visualizer = None
+        self.connect("close-request", self._on_close)
 
         self.toasts = Adw.ToastOverlay()
         tv = Adw.ToolbarView()
@@ -187,6 +189,8 @@ class MainWindow(Adw.ApplicationWindow):
                                         "display-brightness-symbolic")
         self.stack.add_titled_with_icon(self._custom_page(), "custom", "Per-key",
                                         "applications-graphics-symbolic")
+        self.stack.add_titled_with_icon(self._music_page(), "music", "Music",
+                                        "audio-x-generic-symbolic")
         self.stack.add_titled_with_icon(self._settings_page(), "settings", "Settings",
                                         "preferences-system-symbolic")
         tv.set_content(self.stack)
@@ -309,6 +313,120 @@ class MainWindow(Adw.ApplicationWindow):
         outer.append(bar)
         return outer
 
+    def _music_page(self):
+        page = Adw.PreferencesPage()
+        grp = Adw.PreferencesGroup(
+            title="Music sync",
+            description="Lights react to whatever is playing on your default audio output. "
+                        "Runs only while this window is open; your previous lighting returns "
+                        "when you switch it off.")
+        page.add(grp)
+        self.music_row = Adw.SwitchRow(title="Enable music sync")
+        self.music_row.connect("notify::active", self._music_toggled)
+        grp.add(self.music_row)
+
+        from . import music
+        self._music_styles = music.STYLES
+        self.style_row = Adw.ComboRow(
+            title="Style", model=Gtk.StringList.new(["Spectrum bars", "Pulse", "Wave"]))
+        self.style_row.connect("notify::selected", self._music_style_changed)
+        grp.add(self.style_row)
+
+        self.mcolor_row = Adw.ActionRow(title="Colour")
+        self.mrainbow = Gtk.CheckButton(label="Rainbow", active=True, valign=Gtk.Align.CENTER)
+        self.mcolor_btn = Gtk.ColorDialogButton(dialog=Gtk.ColorDialog(with_alpha=False),
+                                                valign=Gtk.Align.CENTER, sensitive=False)
+        rgba = Gdk.RGBA()
+        rgba.parse("#00a0ff")
+        self.mcolor_btn.set_rgba(rgba)
+        self.mrainbow.connect("toggled", self._music_color_changed)
+        self.mcolor_btn.connect("notify::rgba", self._music_color_changed)
+        self.mcolor_row.add_suffix(self.mrainbow)
+        self.mcolor_row.add_suffix(self.mcolor_btn)
+        grp.add(self.mcolor_row)
+
+        self.sens_row = Adw.ActionRow(title="Sensitivity")
+        self.sens = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0.5, 2.0, 0.1)
+        self.sens.set_value(1.0)
+        self.sens.set_size_request(260, -1)
+        self.sens.set_valign(Gtk.Align.CENTER)
+        self.sens.add_mark(1.0, Gtk.PositionType.BOTTOM, None)
+        self.sens.connect("value-changed", self._music_sens_changed)
+        self.sens_row.add_suffix(self.sens)
+        grp.add(self.sens_row)
+        return page
+
+    def _music_color(self):
+        if self.mrainbow.get_active():
+            return None
+        c = self.mcolor_btn.get_rgba()
+        return (round(c.red * 255), round(c.green * 255), round(c.blue * 255))
+
+    def _music_toggled(self, row, _):
+        if row.get_active():
+            from . import music
+            style = self._music_styles[self.style_row.get_selected()]
+
+            def on_error(e):
+                GLib.idle_add(self._music_failed, str(e))
+
+            def job(kb):
+                vis = music.Visualizer(kb, style=style, color=self._music_color(),
+                                       sensitivity=self.sens.get_value(), on_error=on_error)
+                try:
+                    vis.start()
+                except music.AudioError as e:
+                    GLib.idle_add(self._music_failed, str(e))
+                    return None
+                return vis
+            self.worker.submit(job, done=self._music_started)
+        elif self.visualizer:
+            vis, self.visualizer = self.visualizer, None
+            restore = state.light_settings()
+            custom = state.custom_colors()
+            self.worker.submit(lambda kb: vis.stop(restore=restore, custom=custom))
+
+    def _music_started(self, vis):
+        if vis is None:
+            return
+        if not self.music_row.get_active():   # switched off while starting
+            self.worker.submit(lambda kb: vis.stop(restore=state.light_settings(),
+                                                   custom=state.custom_colors()))
+            return
+        self.visualizer = vis
+
+    def _music_failed(self, msg):
+        self.visualizer = None
+        self.music_row.set_active(False)
+        self._toast(f"Music sync stopped: {msg}")
+
+    def _music_style_changed(self, *a):
+        if self.visualizer:
+            self.visualizer.set_style(self._music_styles[self.style_row.get_selected()])
+
+    def _music_color_changed(self, *a):
+        self.mcolor_btn.set_sensitive(not self.mrainbow.get_active())
+        if self.visualizer:
+            self.visualizer.set_color(self._music_color())
+
+    def _music_sens_changed(self, *a):
+        if self.visualizer and self.visualizer.analyzer:
+            self.visualizer.analyzer.sensitivity = self.sens.get_value()
+
+    def _stop_music(self, restore=False):
+        if self.visualizer:
+            vis, self.visualizer = self.visualizer, None
+            self.music_row.set_active(False)
+            vis.stop(restore=state.light_settings() if restore else None,
+                     custom=state.custom_colors())
+
+    def _on_close(self, *a):
+        try:
+            self._stop_music(restore=True)
+        except DeviceError:
+            pass
+        return False
+
     def _settings_page(self):
         page = Adw.PreferencesPage()
         grp = Adw.PreferencesGroup(
@@ -380,6 +498,7 @@ class MainWindow(Adw.ApplicationWindow):
     def _apply_lighting(self):
         self._apply_source = 0
         s = self._current_settings()
+        self._stop_music()
 
         def done(_):
             state.remember_lighting(s)
@@ -400,6 +519,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.canvas.queue_draw()
 
     def _apply_custom(self, *a):
+        self._stop_music()
         colors = dict(self.custom_colors)
         b = int(self.custom_bright.get_value())
         self.custom_apply.set_sensitive(False)
