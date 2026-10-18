@@ -88,16 +88,17 @@ Wired USB, 2026-10-18 (raw log: `hw-test-log.jsonl`):
 | 16 effects | modes 1–9, 11, 12, 15–19 | ✓ all animate as named |
 | Custom per-key | `07 17…`, `0B`, `F6…FB` | ✓ pattern and full-board gradient exactly right (LED map correct) |
 | Live frames | `07 15…`, `09`, `F0…F5` × 2400 @ 20 fps | ✓ smooth; reverts to stored effect when stopped |
-| Music sync (audio) | live frames | pending user test |
+| Music sync (audio) | live frames | ✓ user confirmed working (CLI + GUI) |
 | Fn switch | `10 01` / `10 00` | ✗ no observable change in F-row behaviour |
 | Key remap | `04 01 4E 04`, then `04 01 4E 00` | pending |
 | Sleep / response time | `0C`, `0D` | not tested (no easy observable) |
-| 2.4 GHz receiver | — | pending |
+| 2.4 GHz receiver | `0E`, `07` colours 0–7 | ✓ status 97 % charging; all colours correct |
+| GUI, tray, autostart | installed package on KDE Plasma | ✓ user confirmed |
 
 ## Open questions / next steps
 
-1. **2.4 GHz**: run `tools/hwtest.py --device /dev/hidraw7` with the cable
-   unplugged. Does the receiver forward `0x07`, and what does `0x0E` report?
+1. **2.4 GHz**: verified for status and lighting. Per-key and live
+   frames have not been tested over the receiver yet.
 2. **Fn switch (`0x10`)**: no visible effect. It may only change which layer
    the vendor UI edits, or need an OS-mode switch first. Left as experimental.
 3. **Key remap**: confirm `0x04` on hardware. Find out how "disable key"

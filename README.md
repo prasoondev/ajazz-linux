@@ -12,16 +12,16 @@ ajazzctl only talks to the separate vendor configuration interface.
 | Feature | CLI | GUI | Status |
 |---|---|---|---|
 | Detect keyboard / receiver | `detect` | ✓ | verified |
-| Battery and charge state | `info` | ✓ | verified (wired) |
+| Battery and charge state | `info` | ✓ | verified (wired + 2.4 GHz) |
 | 16 lighting effects | `lighting set/effect` | ✓ | verified |
 | Brightness, speed, direction, 8 colours | `lighting …` | ✓ | verified |
 | Per-key RGB (custom mode, stored on the keyboard) | `lighting custom` | ✓ painter | verified |
-| Music sync (spectrum / pulse / wave) | `music` | ✓ | live streaming verified; audio-reactive styles being tested |
+| Music sync (spectrum / pulse / wave) | `music` | ✓ | verified |
 | Key remap (single key → key) | `keymap set/reset` | — | **experimental**, hardware test pending |
 | Sleep timeout, key response time | `settings sleep/response` | ✓ | sent, effect not verified |
 | Fn switch | `settings fn-switch` | ✓ | sent, **no visible effect observed** |
 | Macros, modifier combos, launch actions | — | — | not implemented (see below) |
-| 2.4 GHz receiver | auto | auto | detected; to be tested |
+| 2.4 GHz receiver | auto | auto | verified (status, lighting) |
 | Bluetooth | — | — | not supported (the vendor software doesn't support it either) |
 | Firmware update | — | — | intentionally not supported |
 
